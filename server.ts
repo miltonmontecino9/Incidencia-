@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import fs from 'fs';
 import path from 'path';
@@ -7,8 +6,16 @@ import path from 'path';
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
-// Habilitar CORS para permitir solicitudes desde Vercel u otros orígenes
-app.use(cors({ origin: '*' }));
+// Middleware de CORS manual (Garantiza que Vercel pueda acceder siempre)
+app.use((_req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (_req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json({ limit: '25mb' }));
 

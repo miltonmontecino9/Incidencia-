@@ -1,13 +1,16 @@
 import { Incident, StaffMember } from '../types/incident';
 import { getStoredPin, setStoredPin } from '../utils/security';
 
+// Dirección pública de tu backend desplegado en Render
+const API_BASE = 'https://incidencia-6ap8.onrender.com';
+
 /**
  * Global Centralized API client for all devices scanning the QR Code or accessing the app.
  */
 
 export async function checkServerHealth(): Promise<boolean> {
   try {
-    const res = await fetch('/api/health');
+    const res = await fetch(`${API_BASE}/api/health`);
     return res.ok;
   } catch {
     return false;
@@ -16,7 +19,7 @@ export async function checkServerHealth(): Promise<boolean> {
 
 export async function fetchCentralIncidents(): Promise<Incident[] | null> {
   try {
-    const res = await fetch('/api/incidents');
+    const res = await fetch(`${API_BASE}/api/incidents`);
     if (!res.ok) throw new Error('Error al consultar incidencias centrales');
     const data = await res.json();
     return Array.isArray(data) ? data : null;
@@ -28,7 +31,7 @@ export async function fetchCentralIncidents(): Promise<Incident[] | null> {
 
 export async function saveCentralIncident(incident: Incident): Promise<boolean> {
   try {
-    const res = await fetch('/api/incidents', {
+    const res = await fetch(`${API_BASE}/api/incidents`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(incident),
@@ -41,7 +44,7 @@ export async function saveCentralIncident(incident: Incident): Promise<boolean> 
 
 export async function updateCentralIncident(incident: Incident): Promise<boolean> {
   try {
-    const res = await fetch(`/api/incidents/${encodeURIComponent(incident.incidentId)}`, {
+    const res = await fetch(`${API_BASE}/api/incidents/${encodeURIComponent(incident.incidentId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(incident),
@@ -54,7 +57,7 @@ export async function updateCentralIncident(incident: Incident): Promise<boolean
 
 export async function fetchCentralStaff(): Promise<StaffMember[] | null> {
   try {
-    const res = await fetch('/api/staff');
+    const res = await fetch(`${API_BASE}/api/staff`);
     if (!res.ok) throw new Error('Error al consultar personal central');
     const data = await res.json();
     return Array.isArray(data) ? data : null;
@@ -65,7 +68,7 @@ export async function fetchCentralStaff(): Promise<StaffMember[] | null> {
 
 export async function saveCentralStaff(staff: StaffMember[]): Promise<boolean> {
   try {
-    const res = await fetch('/api/staff', {
+    const res = await fetch(`${API_BASE}/api/staff`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(staff),
@@ -78,7 +81,7 @@ export async function saveCentralStaff(staff: StaffMember[]): Promise<boolean> {
 
 export async function verifyCentralPin(enteredPin: string): Promise<boolean> {
   try {
-    const res = await fetch('/api/pin/verify', {
+    const res = await fetch(`${API_BASE}/api/pin/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pin: enteredPin.trim() }),
@@ -95,7 +98,7 @@ export async function verifyCentralPin(enteredPin: string): Promise<boolean> {
 
 export async function updateCentralPin(currentPin: string, newPin: string): Promise<boolean> {
   try {
-    const res = await fetch('/api/pin/update', {
+    const res = await fetch(`${API_BASE}/api/pin/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPin, newPin }),

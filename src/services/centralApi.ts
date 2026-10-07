@@ -1,6 +1,6 @@
 import { Incident, StaffMember } from '../types/incident';
 
-const BASE_URL = '/api';
+const BASE_URL = 'https://incidencia-6ap8.onrender.com/api';
 
 export interface SyncResponse {
   incidents: Incident[];

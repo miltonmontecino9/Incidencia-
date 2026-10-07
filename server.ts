@@ -1,10 +1,14 @@
 import express from 'express';
+import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import fs from 'fs';
 import path from 'path';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
+// Habilitar CORS para permitir solicitudes desde Vercel u otros orígenes
+app.use(cors({ origin: '*' }));
 
 app.use(express.json({ limit: '25mb' }));
 
@@ -323,14 +327,20 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.resolve(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (_req, res) => {
+        res.sendFile(path.resolve(distPath, 'index.html'));
+      });
+    } else {
+      app.get('/', (_req, res) => {
+        res.send('Servidor Central de Incidencias Activo');
+      });
+    }
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Museo Patagónico Server corriendo en puerto ${PORT}`);
+    console.log(`Servidor corriendo en puerto ${PORT}`);
   });
 }
 

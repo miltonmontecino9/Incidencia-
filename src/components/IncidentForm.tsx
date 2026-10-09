@@ -523,23 +523,7 @@ export const IncidentForm: React.FC<Props> = ({
             )}
           </div>
 
-          {/* 2. ORGANIZACIONES OFICIALES (3 ENTIDADES) */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-              Organización Responsable / Pertenencia <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={organization}
-              onChange={(e) => setOrganization(e.target.value as OrganizationOption)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-semibold focus:ring-2 focus:ring-amber-500 shadow-2xs"
-            >
-              {ORGANIZATIONS.map((org) => (
-                <option key={org.value} value={org.value}>
-                  {org.label}
-                </option>
-              ))}
-            </select>
-          </div>
+
 
           {/* Datos del Informante */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

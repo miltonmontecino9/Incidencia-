@@ -657,22 +657,7 @@ export const AdminDashboard: React.FC<Props> = ({
             </select>
           </div>
 
-          {/* Organización */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">Organización</label>
-            <select
-              value={orgFilter}
-              onChange={(e) => setOrgFilter(e.target.value as any)}
-              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-medium truncate"
-            >
-              <option value="Todos">Todas las Entidades</option>
-              {ORGANIZATIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+
         </div>
 
         {/* Resumen de Filtros Activos */}

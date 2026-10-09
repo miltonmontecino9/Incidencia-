@@ -325,7 +325,7 @@ export const IncidentForm: React.FC<Props> = ({
             </div>
           </div>
           <p className="text-xs text-slate-300 mt-2">
-            Formulario móvil para voluntarios, coordinadores y personal del Congreso Herpetológico 2026.
+            Formulario para visitantes, guías, personal y coordinadores del Museo Patagónico.
           </p>
         </div>
 
@@ -688,7 +688,7 @@ export const IncidentForm: React.FC<Props> = ({
               )}
             </button>
             <p className="text-[11px] text-center text-slate-500 mt-2 font-medium">
-              Sincroniza directamente con el sistema centralizado de eventos del Congreso Herpetológico 2026.
+              Sincroniza directamente con el sistema centralizado de incidencias del Museo Patagónico.
             </p>
           </div>
 

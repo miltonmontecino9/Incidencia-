@@ -59,16 +59,16 @@ export const Header: React.FC<Props> = ({
           <div className="flex items-center gap-3">
             <img
               src={logoOficial}
-              alt="Logo Oficial Congreso Herpetológico 2026"
+              alt="Logo Oficial Museo Patagónico"
               referrerPolicy="no-referrer"
-              className="h-[45px] w-auto max-h-[45px] object-contain shrink-0"
+              className="h-[48px] w-auto max-h-[48px] object-contain shrink-0"
             />
             <div>
               <h1 className="text-base sm:text-lg font-black text-slate-100 tracking-tight leading-tight">
-                CONGRESO HERPETOLÓGICO 2026
+                MUSEO PATAGÓNICO
               </h1>
               <p className="text-xs font-semibold text-amber-400 tracking-wide leading-tight mt-0.5">
-                Gestión y Despacho de Incidencias
+                Sistema de Reporte y Gestión de Incidencias
               </p>
             </div>
           </div>

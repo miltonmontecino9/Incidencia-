@@ -612,15 +612,15 @@ export const IncidentDetailModal: React.FC<Props> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <img
                 src={logoOficial}
-                alt="Logo Congreso"
+                alt="Logo Museo Patagónico"
                 style={{ width: '45px', height: '45px', objectFit: 'contain' }}
               />
               <div>
                 <h1 style={{ fontSize: '18px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#78350f', margin: 0 }}>
-                  CONGRESO HERPETOLÓGICO 2026
+                  MUSEO PATAGÓNICO
                 </h1>
                 <h2 style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937', margin: '2px 0 0 0' }}>
-                  GESTIÓN Y DESPACHO DE INCIDENCIAS — FICHA TÉCNICA
+                  SISTEMA DE REPORTE Y GESTIÓN DE INCIDENCIAS — FICHA TÉCNICA
                 </h2>
               </div>
             </div>

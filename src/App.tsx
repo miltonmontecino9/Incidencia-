@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Incident, IncidentStatus, StaffMember, AuditLogEntry } from './types/incident';
 import { INITIAL_INCIDENTS } from './data/mockIncidents';
 import { Header } from './components/Header';
@@ -28,6 +28,7 @@ import {
 } from './utils/offlineSync';
 import { getStoredStaffList, saveStoredStaffList } from './utils/staffStorage';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { playHighUrgencySound, unlockAudio } from './utils/audioAlert';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'report' | 'dashboard'>('report');
@@ -70,8 +71,10 @@ export default function App() {
     }
   });
 
-  // Refresco automático en tiempo real (cada 20 segundos)
-  const [autoRefreshSecondsLeft, setAutoRefreshSecondsLeft] = useState(20);
+  // Refresco automático en tiempo real (cada 6 segundos para detección inmediata)
+  const [autoRefreshSecondsLeft, setAutoRefreshSecondsLeft] = useState(6);
+  const knownIncidentIdsRef = useRef<Set<string>>(new Set(incidents.map((i) => i.incidentId)));
+  const isInitialSyncDoneRef = useRef<boolean>(false);
 
   // Modal de confirmación de reporte enviado
   const [submittedIncidentModal, setSubmittedIncidentModal] = useState<Incident | null>(null);
@@ -168,6 +171,25 @@ export default function App() {
     }
   }, [showToast]);
 
+  // Desbloqueo de audio y permisos de notificación al primer toque/clic
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      unlockAudio();
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+    };
+
+    window.addEventListener('click', handleUserInteraction);
+    window.addEventListener('touchstart', handleUserInteraction);
+    return () => {
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, []);
+
   // Sincronización completa con servidor central
   const syncWithCentralServer = useCallback(
     async (showFeedback = false) => {
@@ -175,6 +197,48 @@ export default function App() {
         setIsSyncing(true);
         const data = await fetchCentralSync();
         if (data.incidents && data.incidents.length > 0) {
+          // Si ya se hizo la primera carga, detectamos si ingresaron incidencias nuevas desde otro dispositivo
+          if (isInitialSyncDoneRef.current) {
+            const newlyAdded = data.incidents.filter(
+              (inc) => !knownIncidentIdsRef.current.has(inc.incidentId)
+            );
+
+            if (newlyAdded.length > 0) {
+              // 🚨 Ruidito de alerta para el coordinador
+              playHighUrgencySound();
+
+              // Vibración en smartphones/tablets
+              if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                try {
+                  navigator.vibrate([250, 100, 250, 100, 400]);
+                } catch {}
+              }
+
+              const latest = newlyAdded[0];
+              showToast(
+                `🚨 ¡Nueva incidencia registrada! [${latest.incidentId}] - ${latest.sector} (Urgencia: ${latest.urgency})`,
+                'error'
+              );
+
+              // Notificación nativa del navegador para cuando la pestaña esté minimizada
+              if (
+                typeof window !== 'undefined' &&
+                'Notification' in window &&
+                Notification.permission === 'granted'
+              ) {
+                try {
+                  new Notification(`🚨 Nueva Incidencia: [${latest.incidentId}]`, {
+                    body: `Sector: ${latest.sector} | Urgencia: ${latest.urgency}\n${latest.description?.slice(0, 90) || ''}`,
+                    icon: '/logo_oficial.png',
+                  });
+                } catch {}
+              }
+            }
+          }
+
+          // Actualizar registro de incidencias conocidas
+          knownIncidentIdsRef.current = new Set(data.incidents.map((i) => i.incidentId));
+          isInitialSyncDoneRef.current = true;
           setIncidents(data.incidents);
         }
         if (data.staff && data.staff.length > 0) {
@@ -228,14 +292,14 @@ export default function App() {
     };
   }, [syncWithCentralServer, showToast]);
 
-  // 2. Refresco automático en segundo plano cada 20 segundos
+  // 2. Refresco automático en segundo plano cada 6 segundos para detección inmediata
   useEffect(() => {
     const interval = setInterval(async () => {
       setAutoRefreshSecondsLeft((prev) => {
         if (prev <= 1) {
           // Refresco silencioso con servidor central
           syncWithCentralServer(false);
-          return 20;
+          return 6;
         }
         return prev - 1;
       });
@@ -246,7 +310,7 @@ export default function App() {
 
   // Recarga manual al tocar el botón de sincronizar
   const handleManualRefresh = async () => {
-    setAutoRefreshSecondsLeft(20);
+    setAutoRefreshSecondsLeft(6);
     await syncWithCentralServer(true);
   };
 
@@ -271,6 +335,7 @@ export default function App() {
         setIsOnline(false);
       }
 
+      knownIncidentIdsRef.current.add(newIncident.incidentId);
       setIncidents((prev) => [newIncident, ...prev]);
       setIsLastSubmitOffline(!syncedToCentral);
       setSubmittedIncidentModal(newIncident);

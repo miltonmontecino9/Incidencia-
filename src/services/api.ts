@@ -1,16 +1,12 @@
 import { Incident, StaffMember } from '../types/incident';
 import { getStoredPin, setStoredPin } from '../utils/security';
 
-// Dirección pública o relativa para interactuar en local y Serverless Functions de Vercel
+// Usar siempre ruta relativa para servidor local o Serverless Functions en Vercel
 const API_BASE = '';
-
-/**
- * Global Centralized API client for all devices scanning the QR Code or accessing the app.
- */
 
 export async function checkServerHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/api/health`);
+    const res = await fetch('/api/health');
     return res.ok;
   } catch {
     return false;
@@ -19,96 +15,40 @@ export async function checkServerHealth(): Promise<boolean> {
 
 export async function fetchCentralIncidents(): Promise<Incident[] | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/incidents`);
+    const res = await fetch('/api/incidents');
     if (!res.ok) throw new Error('Error al consultar incidencias centrales');
     const data = await res.json();
-    return Array.isArray(data) ? data : null;
+    return data;
   } catch (err) {
-    console.warn('Central API unreachable, falling back to local store:', err);
+    console.warn('Fallo fetchCentralIncidents:', err);
     return null;
   }
 }
 
-export async function saveCentralIncident(incident: Incident): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/api/incidents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(incident),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+export async function saveCentralIncident(incident: Incident): Promise<Incident> {
+  const res = await fetch('/api/incidents', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(incident),
+  });
+  if (!res.ok) throw new Error('Error al guardar incidencia');
+  return await res.json();
 }
 
-export async function updateCentralIncident(incident: Incident): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/api/incidents/${encodeURIComponent(incident.incidentId)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(incident),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+export async function updateCentralIncident(incident: Incident): Promise<Incident> {
+  const res = await fetch(`/api/incidents/${incident.incidentId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(incident),
+  });
+  if (!res.ok) throw new Error('Error al actualizar incidencia');
+  return await res.json();
 }
 
-export async function fetchCentralStaff(): Promise<StaffMember[] | null> {
-  try {
-    const res = await fetch(`${API_BASE}/api/staff`);
-    if (!res.ok) throw new Error('Error al consultar personal central');
-    const data = await res.json();
-    return Array.isArray(data) ? data : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveCentralStaff(staff: StaffMember[]): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/api/staff`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(staff),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-export async function verifyCentralPin(enteredPin: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/api/pin/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: enteredPin.trim() }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return !!data.valid;
-    }
-  } catch {
-    // Offline fallback
-  }
-  return enteredPin.trim() === getStoredPin();
-}
-
-export async function updateCentralPin(currentPin: string, newPin: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/api/pin/update`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentPin, newPin }),
-    });
-    if (res.ok) {
-      setStoredPin(newPin);
-      return true;
-    }
-  } catch {
-    // Offline fallback
-  }
-  return setStoredPin(newPin);
+export async function deleteCentralIncident(incidentId: string): Promise<boolean> {
+  const res = await fetch(`/api/incidents/${incidentId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Error al eliminar incidencia');
+  return true;
 }

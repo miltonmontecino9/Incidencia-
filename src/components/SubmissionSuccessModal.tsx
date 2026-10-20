@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Copy, Check, X, ClipboardList, LayoutDashboard } from 'lucide-react';
+import { CheckCircle2, Copy, Check, X, ClipboardList, LayoutDashboard, QrCode } from 'lucide-react';
 import { Incident } from '../types/incident';
 
 interface Props {
   incident: Incident | null;
   onClose: () => void;
   onGoToDashboard: () => void;
+  onOpenQR?: (incidentId: string) => void;
   isOffline?: boolean;
 }
 
@@ -13,6 +14,7 @@ export const SubmissionSuccessModal: React.FC<Props> = ({
   incident,
   onClose,
   onGoToDashboard,
+  onOpenQR,
   isOffline = false,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -40,7 +42,7 @@ export const SubmissionSuccessModal: React.FC<Props> = ({
 
         <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
           {isOffline
-            ? 'Guardada localmente en tu teléfono. Se sincronizará con Google Sheets al recuperar conexión.'
+            ? 'Guardada localmente en tu teléfono. Se sincronizará con la base central al recuperar conexión.'
             : 'Enviada al libro de incidencias y transmitida a los coordinadores de sala.'}
         </p>
 
@@ -85,6 +87,20 @@ export const SubmissionSuccessModal: React.FC<Props> = ({
 
         {/* Botones de Acción */}
         <div className="space-y-2 pt-1">
+          {onOpenQR && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenQR(incident.incidentId);
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-bold text-xs transition flex items-center justify-center gap-2 shadow-2xs"
+            >
+              <QrCode className="w-4 h-4 text-amber-600" />
+              <span>Generar Código QR de este Ticket</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onClose}

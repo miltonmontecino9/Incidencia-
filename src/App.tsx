@@ -16,6 +16,7 @@ import {
   fetchCentralSync,
   saveCentralIncident,
   updateCentralIncident,
+  deleteCentralIncident,
   saveStaffList as saveCentralStaffList,
   checkServerHealth,
 } from './services/centralApi';
@@ -33,10 +34,10 @@ import { playHighUrgencySound, unlockAudio } from './utils/audioAlert';
 export default function App() {
   const [activeTab, setActiveTab] = useState<'report' | 'dashboard'>('report');
   
-  // Inicializar incidencias desde caché local o mock inicial
+  // Inicializar incidencias vacío (consumiendo únicamente la base central sin mocks forzados)
   const [incidents, setIncidents] = useState<Incident[]>(() => {
     const cached = getCachedIncidents();
-    return cached && cached.length > 0 ? cached : INITIAL_INCIDENTS;
+    return Array.isArray(cached) ? cached : [];
   });
 
   // Personal asignado dinámico
@@ -84,6 +85,7 @@ export default function App() {
   const [isLastSubmitOffline, setIsLastSubmitOffline] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [qrIncidentId, setQrIncidentId] = useState<string | null>(null);
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
 
   const [confirmModal, setConfirmModal] = useState<{
@@ -192,7 +194,7 @@ export default function App() {
       try {
         setIsSyncing(true);
         const data = await fetchCentralSync();
-        if (data.incidents && data.incidents.length > 0) {
+        if (data.incidents) {
           if (isInitialSyncDoneRef.current) {
             const newlyAdded = data.incidents.filter(
               (inc) => !knownIncidentIdsRef.current.has(inc.incidentId)
@@ -241,11 +243,35 @@ export default function App() {
         await flushPendingOfflineQueue();
 
         if (showFeedback) {
-          showToast(`Sincronizado con base central (${data.incidents.length} incidencias).`, 'success');
+          showToast(`Sincronizado con base central (${(data.incidents || []).length} incidencias).`, 'success');
         }
       } catch (err: any) {
         console.warn('Error al sincronizar con servidor central:', err);
         setIsOnline(false);
+        if (showFeedback) {
+          showToast('Servidor central temporalmente inalcanzable. Usando copia local.', 'warning');
+        }
+      } finally {
+        setIsSyncing(false);
+      }
+    },
+    [flushPendingOfflineQueue, showToast]
+  );
+
+  // Escanear o consultar parámetro ?ticket=INC-XXX desde la URL al cargar
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const ticketParam = params.get('ticket');
+      if (ticketParam) {
+        setActiveTab('dashboard');
+        const found = incidents.find((i) => i.incidentId.toLowerCase() === ticketParam.toLowerCase());
+        if (found) {
+          setSelectedIncident(found);
+        }
+      }
+    }
+  }, [incidents]);
         if (showFeedback) {
           showToast('Servidor central temporalmente inalcanzable. Usando copia local.', 'warning');
         }
@@ -430,6 +456,49 @@ export default function App() {
     });
   };
 
+  const handleDeleteIncident = (incidentId: string) => {
+    if (!isCoordinator) {
+      setIsPinLoginOpen(true);
+      return;
+    }
+
+    const author = coordinatorIdentity || 'Coordinador en Turno';
+
+    setConfirmModal({
+      isOpen: true,
+      title: `⚠️ Eliminar Incidencia ${incidentId}`,
+      message: `¿Estás seguro de que deseas eliminar definitivamente la incidencia ${incidentId}?\n\nEsta acción borrará el registro del servidor central del museo.\nCoordinador responsable: ${author}`,
+      confirmLabel: 'Eliminar Definitivamente',
+      confirmVariant: 'danger',
+      onConfirmAction: async () => {
+        setIsMutating(true);
+        try {
+          try {
+            await deleteCentralIncident(incidentId);
+            setIsOnline(true);
+            showToast(`Incidencia ${incidentId} eliminada de la base central.`, 'success');
+          } catch (err: any) {
+            console.warn('Error al eliminar en servidor central, borrando local:', err);
+            showToast(`Incidencia ${incidentId} eliminada localmente.`, 'info');
+          }
+
+          setIncidents((prev) => prev.filter((i) => i.incidentId !== incidentId));
+          if (selectedIncident && selectedIncident.incidentId === incidentId) {
+            setSelectedIncident(null);
+          }
+        } finally {
+          setIsMutating(false);
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
+  };
+
+  const handleOpenQRModal = (targetIncidentId?: string | null) => {
+    setQrIncidentId(targetIncidentId || null);
+    setIsQRModalOpen(true);
+  };
+
   const handleUpdateStaffList = async (updated: StaffMember[]) => {
     setStaffList(updated);
     saveStoredStaffList(updated);
@@ -494,7 +563,7 @@ export default function App() {
         onRefreshData={handleManualRefresh}
         isRefreshing={isSyncing}
         highPriorityCount={highPriorityCount}
-        onOpenQR={() => setIsQRModalOpen(true)}
+        onOpenQR={() => handleOpenQRModal(null)}
         isCoordinator={isCoordinator}
         onOpenPinLogin={() => setIsPinLoginOpen(true)}
         onLogoutCoordinator={() => {
@@ -547,6 +616,8 @@ export default function App() {
             incidents={incidents}
             onOpenDetail={(inc) => setSelectedIncident(inc)}
             onRequestStatusChange={handleRequestStatusChange}
+            onDeleteIncident={handleDeleteIncident}
+            onOpenQR={handleOpenQRModal}
             onZoomPhoto={(url, title) => setZoomedPhoto({ url, title })}
             sheetMeta={null}
             onRefreshData={handleManualRefresh}
@@ -570,6 +641,7 @@ export default function App() {
           setSubmittedIncidentModal(null);
           setActiveTab('dashboard');
         }}
+        onOpenQR={handleOpenQRModal}
         isOffline={isLastSubmitOffline}
       />
 
@@ -612,6 +684,8 @@ export default function App() {
           incident={selectedIncident}
           onClose={() => setSelectedIncident(null)}
           onUpdateIncident={handleModalUpdate}
+          onDeleteIncident={handleDeleteIncident}
+          onOpenQR={handleOpenQRModal}
           onZoomPhoto={(url, title) => setZoomedPhoto({ url, title })}
           currentUserEmail={coordinatorIdentity || undefined}
           isLoading={isMutating}
@@ -640,7 +714,14 @@ export default function App() {
       />
 
       {/* Modal de Código QR */}
-      <QRCodeModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} />
+      <QRCodeModal
+        isOpen={isQRModalOpen}
+        onClose={() => {
+          setIsQRModalOpen(false);
+          setQrIncidentId(null);
+        }}
+        incidentId={qrIncidentId}
+      />
 
       {/* Modal de Zoom */}
       <ImageModal

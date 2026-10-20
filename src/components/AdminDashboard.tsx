@@ -34,6 +34,8 @@ import {
   Shield,
   ShieldAlert,
   UserCheck,
+  Trash2,
+  QrCode,
 } from 'lucide-react';
 import { SheetMetadata } from '../services/googleSheets';
 import { getShiftFromTimestamp, getElapsedTime, ShiftType } from '../utils/timeAgo';
@@ -45,6 +47,8 @@ interface Props {
     incident: Incident,
     newStatus: IncidentStatus
   ) => void;
+  onDeleteIncident?: (incidentId: string) => void;
+  onOpenQR?: (incidentId: string) => void;
   onZoomPhoto: (url: string, title: string) => void;
   sheetMeta: SheetMetadata | null;
   onRefreshData?: () => void;
@@ -65,6 +69,8 @@ export const AdminDashboard: React.FC<Props> = ({
   incidents,
   onOpenDetail,
   onRequestStatusChange,
+  onDeleteIncident,
+  onOpenQR,
   onZoomPhoto,
   sheetMeta,
   onRefreshData,
@@ -713,6 +719,8 @@ export const AdminDashboard: React.FC<Props> = ({
                         incident={incident}
                         onOpenDetail={onOpenDetail}
                         onRequestStatusChange={onRequestStatusChange}
+                        onDeleteIncident={onDeleteIncident}
+                        onOpenQR={onOpenQR}
                         onZoomPhoto={onZoomPhoto}
                         isCoordinator={isCoordinator}
                         onOpenPinLogin={onOpenPinLogin}
@@ -847,6 +855,17 @@ export const AdminDashboard: React.FC<Props> = ({
 
                         <td className="px-4 py-3 whitespace-nowrap text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {onOpenQR && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenQR(inc.incidentId)}
+                                className="p-1.5 text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                                title="Ver Código QR de seguimiento"
+                              >
+                                <QrCode className="w-4 h-4" />
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => onOpenDetail(inc)}
@@ -886,6 +905,16 @@ export const AdminDashboard: React.FC<Props> = ({
                                     Reabrir
                                   </button>
                                 )}
+                                {onDeleteIncident && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onDeleteIncident(inc.incidentId)}
+                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/60 rounded-lg transition"
+                                    title="Eliminar incidencia"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </>
                             ) : (
                               <button
@@ -921,6 +950,8 @@ const IncidentCard: React.FC<{
   incident: Incident;
   onOpenDetail: (i: Incident) => void;
   onRequestStatusChange: (i: Incident, newStatus: IncidentStatus) => void;
+  onDeleteIncident?: (id: string) => void;
+  onOpenQR?: (id: string) => void;
   onZoomPhoto: (url: string, title: string) => void;
   isCoordinator: boolean;
   onOpenPinLogin: () => void;
@@ -928,6 +959,8 @@ const IncidentCard: React.FC<{
   incident,
   onOpenDetail,
   onRequestStatusChange,
+  onDeleteIncident,
+  onOpenQR,
   onZoomPhoto,
   isCoordinator,
   onOpenPinLogin,
@@ -1057,13 +1090,25 @@ const IncidentCard: React.FC<{
 
       {/* Botones de Acción (Condicionados por Modo Coordinador) */}
       <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => onOpenDetail(incident)}
-          className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 px-2.5 py-1 rounded-lg transition"
-        >
-          Ver Ficha
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onOpenDetail(incident)}
+            className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 px-2.5 py-1 rounded-lg transition"
+          >
+            Ver Ficha
+          </button>
+          {onOpenQR && (
+            <button
+              type="button"
+              onClick={() => onOpenQR(incident.incidentId)}
+              className="p-1 text-amber-600 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+              title="QR de seguimiento"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center gap-1">
           {isCoordinator ? (
@@ -1101,6 +1146,17 @@ const IncidentCard: React.FC<{
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reabrir</span>
+                </button>
+              )}
+
+              {onDeleteIncident && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteIncident(incident.incidentId)}
+                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/60 rounded-lg transition ml-1"
+                  title="Eliminar incidencia"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
             </>

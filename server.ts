@@ -80,12 +80,14 @@ function saveCentralStore(data: any) {
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || '9bd6ab2e-b994-4686-88fd-6a957ac745b8';
 const ONESIGNAL_REST_KEY = process.env.ONESIGNAL_REST_API_KEY || process.env.ONESIGNAL_REST_KEY;
 
-// Transporte de Gmail con Nodemailer
+// Transporte de Gmail con Nodemailer usando SSL directo (puerto 465, seguro para Vercel y cloud)
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // true para puerto 465 (evita bloqueos de puerto 587 en Vercel)
   auth: {
     user: process.env.EMAIL_USER || 'incidencias.museopatagonico@gmail.com',
-    pass: process.env.EMAIL_PASS || 'pviphaasnlpcpdaq', // Tu contraseña de aplicación de 16 caracteres
+    pass: process.env.EMAIL_PASS || 'pviphaasnlpcpdaq', // Contraseña de aplicación de 16 caracteres
   },
 });
 
@@ -285,6 +287,18 @@ app.post('/api/incidents', (req, res) => {
   const existingIdx = store.incidents.findIndex((i: any) => (i.incidentId || i.codigo) === incId);
   const isNew = existingIdx === -1;
 
+  // Asegurar que auditLog esté inicializado
+  if (!Array.isArray(newIncident.auditLog)) {
+    newIncident.auditLog = [
+      {
+        id: `audit_init_${Date.now()}`,
+        timestamp: newIncident.timestamp || new Date().toLocaleString('es-AR'),
+        coordinatorName: newIncident.reporterName || 'Sistema',
+        action: 'Incidencia creada y registrada en el sistema',
+      },
+    ];
+  }
+
   if (existingIdx !== -1) {
     store.incidents[existingIdx] = newIncident;
   } else {
@@ -311,6 +325,13 @@ app.put('/api/incidents/:id', (req, res) => {
   const idx = store.incidents.findIndex((i: any) => (i.incidentId || i.codigo) === id);
   const prevStatus = idx !== -1 ? store.incidents[idx].status : null;
 
+  // Preservar o actualizar el arreglo de auditLog
+  if (!Array.isArray(updatedIncident.auditLog)) {
+    updatedIncident.auditLog = idx !== -1 && Array.isArray(store.incidents[idx].auditLog)
+      ? store.incidents[idx].auditLog
+      : [];
+  }
+
   if (idx === -1) {
     store.incidents.unshift(updatedIncident);
   } else {
@@ -324,6 +345,22 @@ app.put('/api/incidents/:id', (req, res) => {
   if (updatedIncident.status === 'Resuelto' && prevStatus !== 'Resuelto') {
     enviarEmailResolución(updatedIncident).catch((err) => console.error('Error enviando email de resolución:', err));
   }
+});
+
+// Eliminar Incidencia
+app.delete('/api/incidents/:id', (req, res) => {
+  const { id } = req.params;
+  const store = loadCentralStore();
+
+  const idx = store.incidents.findIndex((i: any) => (i.incidentId || i.codigo) === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: `Incidencia ${id} no encontrada` });
+  }
+
+  const deleted = store.incidents.splice(idx, 1)[0];
+  saveCentralStore(store);
+  console.log(`🗑️ [CentralStore] Incidencia eliminada definitivamente: ${id}`);
+  res.json({ success: true, deletedId: id, deletedIncident: deleted });
 });
 
 app.get('/api/staff', (_req, res) => {

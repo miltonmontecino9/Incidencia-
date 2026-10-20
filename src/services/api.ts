@@ -1,8 +1,8 @@
 import { Incident, StaffMember } from '../types/incident';
 import { getStoredPin, setStoredPin } from '../utils/security';
 
-// Dirección pública de tu backend desplegado en Render
-const API_BASE = 'https://incidencia-6ap8.onrender.com';
+// Dirección pública o relativa para interactuar en local y Serverless Functions de Vercel
+const API_BASE = '';
 
 /**
  * Global Centralized API client for all devices scanning the QR Code or accessing the app.

@@ -29,6 +29,8 @@ import {
   UserCheck,
   FileText,
   Printer,
+  QrCode,
+  Trash2,
 } from 'lucide-react';
 import { getElapsedTime } from '../utils/timeAgo';
 
@@ -40,6 +42,8 @@ interface Props {
     changeDescription: string,
     newAuditEntry?: AuditLogEntry
   ) => void;
+  onDeleteIncident?: (incidentId: string) => void;
+  onOpenQR?: (incidentId: string) => void;
   onZoomPhoto: (url: string, title: string) => void;
   currentUserEmail?: string;
   isLoading?: boolean;
@@ -54,6 +58,8 @@ export const IncidentDetailModal: React.FC<Props> = ({
   incident,
   onClose,
   onUpdateIncident,
+  onDeleteIncident,
+  onOpenQR,
   onZoomPhoto,
   currentUserEmail,
   isLoading = false,
@@ -214,6 +220,19 @@ export const IncidentDetailModal: React.FC<Props> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* BOTÓN CÓDIGO QR ESPECÍFICO DE ESTE TICKET */}
+            {onOpenQR && (
+              <button
+                type="button"
+                onClick={() => onOpenQR(incident.incidentId)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-slate-700 text-xs font-bold transition shadow-2xs"
+                title="Generar Código QR para este ticket"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">QR Ticket</span>
+              </button>
+            )}
+
             {/* 4. BOTÓN IMPRIMIR / EXPORTAR PDF */}
             <button
               type="button"
@@ -575,6 +594,17 @@ export const IncidentDetailModal: React.FC<Props> = ({
               <Printer className="w-3.5 h-3.5 text-amber-600" />
               <span>Imprimir Ficha</span>
             </button>
+            {isCoordinator && onDeleteIncident && (
+              <button
+                type="button"
+                onClick={() => onDeleteIncident(incident.incidentId)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/60 transition"
+                title="Eliminar incidencia permanentemente"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Eliminar</span>
+              </button>
+            )}
           </div>
 
           {isCoordinator ? (

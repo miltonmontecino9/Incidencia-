@@ -36,26 +36,7 @@ function loadCentralStore() {
     }
   }
   const initialData = {
-    incidents: [
-      {
-        incidentId: 'INC-001',
-        timestamp: '2026-10-07 09:15',
-        reporterName: 'Carlos Méndez',
-        reporterEmail: 'carlos.m@museopatagonico.org',
-        organization: 'Museo Patagónico',
-        category: 'Seguridad y Salud',
-        urgency: 'Alta',
-        sector: 'Salas de Exposición',
-        exactLocation: 'Sala B, Sector Paleontología junto a réplica de fósil',
-        description: 'Goteo constante desde el ducto del aire acondicionado formando un charco resbaloso sobre el pasillo de circulación.',
-        status: 'En Curso',
-        assignedTo: 'sofia.alvarez@museopatagonico.org',
-        resolutionNotes: 'Conos amarillos de precaución colocados; personal de mantenimiento en camino.',
-        progressComments: [],
-        auditLog: [],
-        rowIndex: 2,
-      }
-    ],
+    incidents: [],
     staff: [
       { id: 'st_1', name: 'Coordinación Museo', email: 'incidencias.museopatagonico@gmail.com', role: 'Coordinador General', active: true },
     ],

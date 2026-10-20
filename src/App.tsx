@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Incident, IncidentStatus, StaffMember, AuditLogEntry } from './types/incident';
-import { INITIAL_INCIDENTS } from './data/mockIncidents';
 import { Header } from './components/Header';
 import { IncidentForm } from './components/IncidentForm';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -18,7 +17,6 @@ import {
   updateCentralIncident,
   deleteCentralIncident,
   saveStaffList as saveCentralStaffList,
-  checkServerHealth,
 } from './services/centralApi';
 import {
   getCachedIncidents,
@@ -272,15 +270,6 @@ export default function App() {
       }
     }
   }, [incidents]);
-        if (showFeedback) {
-          showToast('Servidor central temporalmente inalcanzable. Usando copia local.', 'warning');
-        }
-      } finally {
-        setIsSyncing(false);
-      }
-    },
-    [flushPendingOfflineQueue, showToast]
-  );
 
   useEffect(() => {
     syncWithCentralServer(false);

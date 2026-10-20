@@ -27,23 +27,23 @@ import {
   removeFromPendingQueue,
 } from './utils/offlineSync';
 import { getStoredStaffList, saveStoredStaffList } from './utils/staffStorage';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Bell } from 'lucide-react';
 import { playHighUrgencySound, unlockAudio } from './utils/audioAlert';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'report' | 'dashboard'>('report');
   
-  // 3. Inicializar incidencias desde caché local o mock inicial
+  // Inicializar incidencias desde caché local o mock inicial
   const [incidents, setIncidents] = useState<Incident[]>(() => {
     const cached = getCachedIncidents();
     return cached && cached.length > 0 ? cached : INITIAL_INCIDENTS;
   });
 
-  // 2. Personal asignado dinámico
+  // Personal asignado dinámico
   const [staffList, setStaffList] = useState<StaffMember[]>(() => getStoredStaffList());
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
-  // 3. Identidad del coordinador para firma y trazabilidad
+  // Identidad del coordinador para firma y trazabilidad
   const [coordinatorIdentity, setCoordinatorIdentity] = useState<string>(() => {
     try {
       return localStorage.getItem('mp_coordinator_name') || '';
@@ -57,10 +57,13 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // 1. Control de acceso por roles y PIN (Por defecto: Modo Voluntario = false)
+  // Control de acceso por roles y PIN
   const [isCoordinator, setIsCoordinator] = useState(false);
   const [isPinLoginOpen, setIsPinLoginOpen] = useState(false);
   const [isChangePinOpen, setIsChangePinOpen] = useState(false);
+
+  // Banner visual de atención inmediata para incidencias urgentes
+  const [urgentAlertBanner, setUrgentAlertBanner] = useState<Incident | null>(null);
 
   // Modo Oscuro / Claro
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -71,21 +74,18 @@ export default function App() {
     }
   });
 
-  // Refresco automático en tiempo real (cada 6 segundos para detección inmediata)
+  // Refresco automático en tiempo real (cada 6 segundos)
   const [autoRefreshSecondsLeft, setAutoRefreshSecondsLeft] = useState(6);
   const knownIncidentIdsRef = useRef<Set<string>>(new Set(incidents.map((i) => i.incidentId)));
   const isInitialSyncDoneRef = useRef<boolean>(false);
 
-  // Modal de confirmación de reporte enviado
+  // Modales de confirmación e imágenes
   const [submittedIncidentModal, setSubmittedIncidentModal] = useState<Incident | null>(null);
   const [isLastSubmitOffline, setIsLastSubmitOffline] = useState(false);
-
-  // Modales adicionales
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [zoomedPhoto, setZoomedPhoto] = useState<{ url: string; title: string } | null>(null);
 
-  // Modal de confirmación para cambios de estado
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -129,12 +129,10 @@ export default function App() {
     setIsDarkMode((prev) => !prev);
   };
 
-  // Guardar siempre en caché local cuando cambian las incidencias
   useEffect(() => {
     saveCachedIncidents(incidents);
   }, [incidents]);
 
-  // Siguiente código de ticket único (ej. INC-007)
   const nextId = useMemo(() => {
     let maxNum = 0;
     incidents.forEach((inc) => {
@@ -151,7 +149,6 @@ export default function App() {
     return incidents.filter((i) => i.urgency === 'Alta' && i.status !== 'Resuelto').length;
   }, [incidents]);
 
-  // Sincronización de cola pendiente offline con servidor central
   const flushPendingOfflineQueue = useCallback(async () => {
     const queue = getPendingQueue();
     if (queue.length === 0) return;
@@ -171,7 +168,6 @@ export default function App() {
     }
   }, [showToast]);
 
-  // Desbloqueo de audio y permisos de notificación al primer toque/clic
   useEffect(() => {
     const handleUserInteraction = () => {
       unlockAudio();
@@ -197,38 +193,35 @@ export default function App() {
         setIsSyncing(true);
         const data = await fetchCentralSync();
         if (data.incidents && data.incidents.length > 0) {
-          // Si ya se hizo la primera carga, detectamos si ingresaron incidencias nuevas desde otro dispositivo
           if (isInitialSyncDoneRef.current) {
             const newlyAdded = data.incidents.filter(
               (inc) => !knownIncidentIdsRef.current.has(inc.incidentId)
             );
 
             if (newlyAdded.length > 0) {
-              // 🚨 Ruidito de alerta para el coordinador
+              // 1. Sonido sintetizado de campana
               playHighUrgencySound();
 
-              // Vibración en smartphones/tablets
+              // 2. Vibración en smartphones/tablets
               if (typeof navigator !== 'undefined' && navigator.vibrate) {
                 try {
-                  navigator.vibrate([250, 100, 250, 100, 400]);
+                  navigator.vibrate([300, 100, 300, 100, 500]);
                 } catch {}
               }
 
+              // 3. Banner visual de atención inmediata
               const latest = newlyAdded[0];
-              showToast(
-                `🚨 ¡Nueva incidencia registrada! [${latest.incidentId}] - ${latest.sector} (Urgencia: ${latest.urgency})`,
-                'error'
-              );
+              setUrgentAlertBanner(latest);
 
-              // Notificación nativa del navegador para cuando la pestaña esté minimizada
+              // 4. Notificación nativa si está minimizado
               if (
                 typeof window !== 'undefined' &&
                 'Notification' in window &&
                 Notification.permission === 'granted'
               ) {
                 try {
-                  new Notification(`🚨 Nueva Incidencia: [${latest.incidentId}]`, {
-                    body: `Sector: ${latest.sector} | Urgencia: ${latest.urgency}\n${latest.description?.slice(0, 90) || ''}`,
+                  new Notification(`🚨 Museo Patagónico: [${latest.incidentId}]`, {
+                    body: `Sector: ${latest.sector} | Urgencia: ${latest.urgency}\n${latest.description?.slice(0, 80) || ''}`,
                     icon: '/logo_oficial.png',
                   });
                 } catch {}
@@ -236,7 +229,6 @@ export default function App() {
             }
           }
 
-          // Actualizar registro de incidencias conocidas
           knownIncidentIdsRef.current = new Set(data.incidents.map((i) => i.incidentId));
           isInitialSyncDoneRef.current = true;
           setIncidents(data.incidents);
@@ -246,8 +238,6 @@ export default function App() {
           saveStoredStaffList(data.staff);
         }
         setIsOnline(true);
-
-        // Despachar cualquier reporte pendiente
         await flushPendingOfflineQueue();
 
         if (showFeedback) {
@@ -266,12 +256,10 @@ export default function App() {
     [flushPendingOfflineQueue, showToast]
   );
 
-  // Carga inicial al montar la aplicación
   useEffect(() => {
     syncWithCentralServer(false);
   }, [syncWithCentralServer]);
 
-  // Listener para evento 'online' / 'offline' del navegador
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true);
@@ -292,12 +280,10 @@ export default function App() {
     };
   }, [syncWithCentralServer, showToast]);
 
-  // 2. Refresco automático en segundo plano cada 6 segundos para detección inmediata
   useEffect(() => {
     const interval = setInterval(async () => {
       setAutoRefreshSecondsLeft((prev) => {
         if (prev <= 1) {
-          // Refresco silencioso con servidor central
           syncWithCentralServer(false);
           return 6;
         }
@@ -308,13 +294,11 @@ export default function App() {
     return () => clearInterval(interval);
   }, [syncWithCentralServer]);
 
-  // Recarga manual al tocar el botón de sincronizar
   const handleManualRefresh = async () => {
     setAutoRefreshSecondsLeft(6);
     await syncWithCentralServer(true);
   };
 
-  // 1. VISTA DE REPORTE TOTALMENTE PROTEGIDA E INTACTA
   const handleSubmitIncident = async (newIncident: Incident) => {
     setIsSubmitting(true);
     let syncedToCentral = false;
@@ -350,7 +334,6 @@ export default function App() {
     }
   };
 
-  // 3. Solicitud de cambio de estado con firma de trazabilidad
   const handleRequestStatusChange = (incident: Incident, newStatus: IncidentStatus) => {
     if (!isCoordinator) {
       setIsPinLoginOpen(true);
@@ -378,7 +361,7 @@ export default function App() {
 
     const actionDesc =
       newStatus === 'Resuelto'
-        ? `¿Confirmar resolución de la incidencia ${incident.incidentId} en la base central del evento?\n\nSector: ${currentSectorLabel}\nUbicación: ${incident.exactLocation}\n\nFirma responsable: ${author}`
+        ? `¿Confirmar resolución de la incidencia ${incident.incidentId} en la base central del museo?\n\nSector: ${currentSectorLabel}\nUbicación: ${incident.exactLocation}\n\nFirma responsable: ${author}`
         : newStatus === 'En Curso'
         ? `¿Despachar la incidencia ${incident.incidentId} y cambiar estado a 'En Curso'?\n\nFirma responsable: ${author}`
         : `¿Reabrir la incidencia ${incident.incidentId} y devolverla a 'Pendiente'?\n\nFirma responsable: ${author}`;
@@ -399,7 +382,6 @@ export default function App() {
     });
   };
 
-  // Actualización en el servidor central y estado local
   const executeUpdateIncident = async (updatedIncident: Incident) => {
     setIsMutating(true);
 
@@ -427,7 +409,6 @@ export default function App() {
     }
   };
 
-  // Guardado desde el modal de detalle con firma de auditoría
   const handleModalUpdate = (updatedIncident: Incident, changeDescription: string) => {
     if (!isCoordinator) {
       setIsPinLoginOpen(true);
@@ -439,7 +420,7 @@ export default function App() {
     setConfirmModal({
       isOpen: true,
       title: `Confirmar Cambios en Incidencia ${updatedIncident.incidentId}`,
-      message: `${changeDescription}\n\nFirma del Coordinador: ${author}\n\nLos cambios se registrarán inmediatamente en la base de datos central compartida del evento.`,
+      message: `${changeDescription}\n\nFirma del Coordinador: ${author}\n\nLos cambios se registrarán inmediatamente en la base de datos central.`,
       confirmLabel: 'Guardar y Sincronizar',
       confirmVariant: 'primary',
       onConfirmAction: async () => {
@@ -449,7 +430,6 @@ export default function App() {
     });
   };
 
-  // Actualización del equipo de personal en la base central
   const handleUpdateStaffList = async (updated: StaffMember[]) => {
     setStaffList(updated);
     saveStoredStaffList(updated);
@@ -465,6 +445,46 @@ export default function App() {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-100/75 text-slate-900'} flex flex-col font-sans transition-colors`}>
       
+      {/* Banner Visual de Atención Inmediata para Nuevas Incidencias */}
+      {urgentAlertBanner && (
+        <aside
+          aria-label="Alerta de Incidencia Urgente"
+          className="fixed top-0 inset-x-0 z-50 bg-red-600 text-white shadow-2xl px-4 py-3 flex items-center justify-between animate-bounce"
+        >
+          <div className="flex items-center gap-3">
+            <Bell className="w-6 h-6 text-white animate-pulse" />
+            <div>
+              <p className="font-bold text-sm sm:text-base">
+                ¡ATENCIÓN INMEDIATA! Nueva Incidencia [{urgentAlertBanner.incidentId}]
+              </p>
+              <p className="text-xs sm:text-sm text-red-100">
+                Sector: <strong>{urgentAlertBanner.sector}</strong> — {urgentAlertBanner.description?.slice(0, 90)}...
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedIncident(urgentAlertBanner);
+                setActiveTab('dashboard');
+                setUrgentAlertBanner(null);
+              }}
+              className="bg-white text-red-700 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-red-50 transition shadow"
+            >
+              Ver Incidencia
+            </button>
+            <button
+              type="button"
+              onClick={() => setUrgentAlertBanner(null)}
+              className="p-1 rounded-md hover:bg-red-700 text-white/80 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        </aside>
+      )}
+
       {/* Cabecera Principal */}
       <Header
         activeTab={activeTab}
@@ -511,7 +531,6 @@ export default function App() {
       {/* Contenido Principal */}
       <main className="flex-1 pb-16">
         {activeTab === 'report' ? (
-          /* 1. VISTA DE FORMULARIO DE REPORTE INTACTA Y SIN MODIFICACIONES */
           <IncidentForm
             user={null}
             activeIncidents={incidents}
@@ -524,7 +543,6 @@ export default function App() {
             isSubmitting={isSubmitting}
           />
         ) : (
-          /* 2. PANEL DE COORDINACIÓN CON GESTIÓN DE PERSONAL Y TRAZABILIDAD */
           <AdminDashboard
             incidents={incidents}
             onOpenDetail={(inc) => setSelectedIncident(inc)}
@@ -544,7 +562,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Modal de Confirmación de Envío con Ticket Destacado */}
+      {/* Modal de Confirmación de Envío */}
       <SubmissionSuccessModal
         incident={submittedIncidentModal}
         onClose={() => setSubmittedIncidentModal(null)}
@@ -555,7 +573,7 @@ export default function App() {
         isOffline={isLastSubmitOffline}
       />
 
-      {/* 3. Modal de Autenticación por PIN y Captura de Nombre/Email del Coordinador */}
+      {/* Modal de PIN */}
       <PinLoginModal
         isOpen={isPinLoginOpen}
         onClose={() => setIsPinLoginOpen(false)}
@@ -580,7 +598,7 @@ export default function App() {
         }}
       />
 
-      {/* 2. Modal de Gestión Dinámica de Personal Asignable */}
+      {/* Modal de Gestión de Personal */}
       <StaffManagementModal
         isOpen={isStaffModalOpen}
         onClose={() => setIsStaffModalOpen(false)}
@@ -588,7 +606,7 @@ export default function App() {
         onUpdateStaffList={handleUpdateStaffList}
       />
 
-      {/* Modal de Detalle de Incidencia con Trazabilidad y Gestión de Personal */}
+      {/* Modal de Detalle */}
       {selectedIncident && (
         <IncidentDetailModal
           incident={selectedIncident}
@@ -605,7 +623,7 @@ export default function App() {
         />
       )}
 
-      {/* Modal de Confirmación para Operaciones Mutantes */}
+      {/* Modal de Confirmación */}
       <WorkspaceConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -624,7 +642,7 @@ export default function App() {
       {/* Modal de Código QR */}
       <QRCodeModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} />
 
-      {/* Modal de Zoom de Foto */}
+      {/* Modal de Zoom */}
       <ImageModal
         imageUrl={zoomedPhoto ? zoomedPhoto.url : null}
         title={zoomedPhoto ? zoomedPhoto.title : undefined}

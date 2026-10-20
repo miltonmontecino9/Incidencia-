@@ -432,5 +432,13 @@ async function startServer() {
   });
 }
 
+// ✅ POR ESTO OTRO:
 loadCentralStore();
-startServer();
+
+// Exportar app para que Vercel la ejecute como Serverless Function
+export default app;
+
+// Iniciar servidor tradicional solo si se ejecuta localmente
+if (process.env.NODE_ENV !== 'production') {
+  startServer();
+}

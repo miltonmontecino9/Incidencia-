@@ -1,5 +1,6 @@
 
-let globalIncidents = [];
+let store = global.__INCIDENTS__ || [];
+global.__INCIDENTS__ = store;
 
 export default function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -9,17 +10,12 @@ export default function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (req.method === "POST") {
-    const { action, incident } = req.body || {};
+    const { incident } = req.body || {};
     if (incident) {
-      const exists = globalIncidents.find(i => i.incidentId === incident.incidentId);
-      if (!exists) {
-        globalIncidents.unshift(incident);
-      } else {
-        globalIncidents = globalIncidents.map(i => i.incidentId === incident.incidentId ? incident : i);
-      }
+      store.unshift(incident);
     }
-    return res.status(200).json({ success: true, incidents: globalIncidents });
+    return res.status(200).json({ success: true, incidents: store });
   }
 
-  return res.status(200).json({ success: true, incidents: globalIncidents });
+  return res.status(200).json({ success: true, incidents: store });
 }

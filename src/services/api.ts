@@ -26,7 +26,13 @@ export async function fetchCentralIncidents(): Promise<Incident[] | null> {
 }
 
 export async function saveCentralIncident(incident: Incident): Promise<Incident> {
-  const res = await fetch('/api/sync', {
+  const res = await fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "write", incident })
+    });
+    if (res.ok) return await res.json();
+    const fallback =
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(incident),

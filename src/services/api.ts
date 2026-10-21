@@ -15,7 +15,7 @@ export async function checkServerHealth(): Promise<boolean> {
 
 export async function fetchCentralIncidents(): Promise<Incident[] | null> {
   try {
-    const res = await fetch('/api/incidents');
+    const res = await fetch('/api/sync');
     if (!res.ok) throw new Error('Error al consultar incidencias centrales');
     const data = await res.json();
     return data;
@@ -26,7 +26,7 @@ export async function fetchCentralIncidents(): Promise<Incident[] | null> {
 }
 
 export async function saveCentralIncident(incident: Incident): Promise<Incident> {
-  const res = await fetch('/api/incidents', {
+  const res = await fetch('/api/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(incident),
@@ -36,7 +36,7 @@ export async function saveCentralIncident(incident: Incident): Promise<Incident>
 }
 
 export async function updateCentralIncident(incident: Incident): Promise<Incident> {
-  const res = await fetch(`/api/incidents/${incident.incidentId}`, {
+  const res = await fetch(`/api/sync/${incident.incidentId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(incident),
@@ -46,7 +46,7 @@ export async function updateCentralIncident(incident: Incident): Promise<Inciden
 }
 
 export async function deleteCentralIncident(incidentId: string): Promise<boolean> {
-  const res = await fetch(`/api/incidents/${incidentId}`, {
+  const res = await fetch(`/api/sync/${incidentId}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Error al eliminar incidencia');

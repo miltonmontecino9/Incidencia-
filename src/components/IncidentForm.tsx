@@ -141,7 +141,21 @@ export const IncidentForm: React.FC<Props> = ({
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    try { window.dispatchEvent(new Event("storage")); } catch(e){}
+    try {
+      const incidentData = {
+        incidentId: "INC-" + Math.floor(100 + Math.random() * 900),
+        description: description || "Sin descripción",
+        sectorId: sectorId || "General",
+        urgency: urgency || "Media",
+        status: "PENDIENTE",
+        timestamp: new Date().toISOString()
+      };
+      await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "write", incident: incidentData })
+      }).catch(() => {});
+ window.dispatchEvent(new Event("storage")); } catch(e){}
 
     try {
       const newIncident = { incidentId: "INC-" + Math.floor(100 + Math.random() * 900), description, sectorId, urgency, status: "PENDIENTE", timestamp: new Date().toISOString() };

@@ -59,7 +59,14 @@ export async function deleteCentralIncident(incidentId: string): Promise<boolean
   return true;
 }
 export async function getIncidents() {
-  try {
-    return JSON.parse(localStorage.getItem("museum_incidents") || "[]");
-  } catch(e) { return []; }
+try {
+const res = await fetch("/api/sync");
+if (res.ok) {
+  const data = await res.json();
+  if (data && data.incidents) return data.incidents;
+}
+} catch (e) {}
+try {
+return JSON.parse(localStorage.getItem("museum_incidents") || "[]");
+} catch(e) { return []; }
 }

@@ -315,6 +315,15 @@ export default function App() {
   };
 
   const handleSubmitIncident = async (newIncident: Incident) => {
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        titulo: newIncident.description || "Nueva incidencia",
+        sector: newIncident.sectorId || "General",
+        urgencia: newIncident.urgency || "Media"
+      })
+    }).catch(err => console.error("Error enviando push:", err));
     setIsSubmitting(true);
     let syncedToCentral = false;
 

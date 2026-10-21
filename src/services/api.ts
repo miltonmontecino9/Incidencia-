@@ -58,3 +58,8 @@ export async function deleteCentralIncident(incidentId: string): Promise<boolean
   if (!res.ok) throw new Error('Error al eliminar incidencia');
   return true;
 }
+export async function getIncidents() {
+  try {
+    return JSON.parse(localStorage.getItem("museum_incidents") || "[]");
+  } catch(e) { return []; }
+}

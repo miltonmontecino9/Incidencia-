@@ -39,12 +39,17 @@ async function sendCoordinatorEmail(incident) {
     let recipientList = [];
     const storedList = await redis.get(COORD_EMAILS_KEY);
     if (Array.isArray(storedList) && storedList.length > 0) {
-      recipientList = storedList;
-    } else if (process.env.COORDINATOR_EMAILS) {
+      recipientList = storedList.filter((e) => typeof e === 'string' && e.includes('@'));
+    }
+    
+    if (recipientList.length === 0 && process.env.COORDINATOR_EMAILS) {
       recipientList = process.env.COORDINATOR_EMAILS.split(',').map((e) => e.trim());
     }
 
-    if (recipientList.length === 0) return;
+    // Correo oficial del Museo como destino si no hay ninguno registrado
+    if (recipientList.length === 0) {
+      recipientList = ['incidencias.museopatagonico@gmail.com'];
+    }
 
     const urgencyColor = incident.urgency === 'Alta' ? '#dc2626' : incident.urgency === 'Media' ? '#d97706' : '#2563eb';
 
@@ -73,7 +78,7 @@ async function sendCoordinatorEmail(incident) {
 
     const subject = `🚨 [${incident.urgency || 'Urgente'}] Nueva Incidencia ${incident.incidentId} - ${incident.sector || 'Museo'}`;
 
-    // 1. Probar Resend vía HTTP Fetch directo
+    // 1. Intentar con Resend (solo permite enviar a incidencias.museopatagonico@gmail.com en el plan gratuito)
     if (process.env.RESEND_API_KEY) {
       try {
         const resResend = await fetch('https://api.resend.com/emails', {
@@ -84,7 +89,7 @@ async function sendCoordinatorEmail(incident) {
           },
           body: JSON.stringify({
             from: 'Incidencias Museo <onboarding@resend.dev>',
-            to: recipientList,
+            to: ['incidencias.museopatagonico@gmail.com'],
             subject,
             html: htmlContent,
           }),
@@ -95,22 +100,26 @@ async function sendCoordinatorEmail(incident) {
       }
     }
 
-    // 2. Probar Brevo como respaldo
+    // 2. Intentar con Brevo (usando la casilla verificada como remitente)
     if (process.env.BREVO_API_KEY) {
-      await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'api-key': process.env.BREVO_API_KEY,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: { name: 'Incidencias Museo', email: 'no-reply@museo.org' },
-          to: recipientList.map((email) => ({ email })),
-          subject,
-          htmlContent,
-        }),
-      });
+      try {
+        await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'api-key': process.env.BREVO_API_KEY,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: 'Sistema de Incidencias Museo', email: 'incidencias.museopatagonico@gmail.com' },
+            to: recipientList.map((email) => ({ email })),
+            subject,
+            htmlContent,
+          }),
+        });
+      } catch (err) {
+        console.warn('Fallo Brevo fetch:', err);
+      }
     }
   } catch (e) {
     console.error('Error enviando mail:', e);

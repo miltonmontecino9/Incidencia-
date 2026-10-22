@@ -38,63 +38,59 @@ function readIncident(req) {
 }
 
 async function sendCoordinatorEmail(incident) {
-  let recipientList = [];
   try {
+    let recipientList = [];
     const storedList = await redis.get(COORD_EMAILS_KEY);
     if (Array.isArray(storedList) && storedList.length > 0) {
       recipientList = storedList;
+    } else if (process.env.COORDINATOR_EMAILS) {
+      recipientList = process.env.COORDINATOR_EMAILS.split(',').map((e) => e.trim());
     }
-  } catch (e) {}
 
-  if (recipientList.length === 0 && process.env.COORDINATOR_EMAILS) {
-    recipientList = process.env.COORDINATOR_EMAILS.split(',').map((e) => e.trim());
-  }
+    if (recipientList.length === 0) return;
 
-  if (recipientList.length === 0) return;
+    const urgencyColor = incident.urgency === 'Alta' ? '#dc2626' : incident.urgency === 'Media' ? '#d97706' : '#2563eb';
 
-  const urgencyColor = incident.urgency === 'Alta' ? '#dc2626' : incident.urgency === 'Media' ? '#d97706' : '#2563eb';
-
-  const htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-      <div style="background-color: #0f172a; padding: 20px; text-align: center; color: white;">
-        <h2 style="margin: 0; font-size: 20px;">🏛️ Museo Patagónico</h2>
-        <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 14px;">Nueva Incidencia Registrada [${incident.incidentId}]</p>
-      </div>
-      <div style="padding: 24px; background-color: #ffffff; color: #334155;">
-        <div style="display: inline-block; padding: 6px 12px; background-color: ${urgencyColor}; color: white; font-weight: bold; font-size: 12px; border-radius: 6px; margin-bottom: 16px;">
-          Urgencia: ${incident.urgency || 'Media'}
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background-color: #0f172a; padding: 20px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 20px;">🏛️ Museo Patagónico</h2>
+          <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 14px;">Nueva Incidencia Registrada [${incident.incidentId}]</p>
         </div>
-        <p style="font-size: 16px; font-weight: bold; margin: 0 0 10px 0;">Sector: ${incident.sector || 'General'}</p>
-        <p style="font-size: 14px; margin: 0 0 10px 0;"><b>Ubicación exacta:</b> ${incident.exactLocation || 'No especificada'}</p>
-        <p style="font-size: 14px; margin: 0 0 16px 0; background-color: #f8fafc; padding: 12px; border-radius: 8px; border-left: 4px solid #cbd5e1;">
-          <b>Descripción:</b><br/>${incident.description || 'Sin descripción'}
-        </p>
-        <p style="font-size: 13px; color: #64748b;"><b>Informante:</b> ${incident.reporterName || 'Anónimo'} (${incident.reporterEmail || 'Sin email'})</p>
+        <div style="padding: 24px; background-color: #ffffff; color: #334155;">
+          <div style="display: inline-block; padding: 6px 12px; background-color: ${urgencyColor}; color: white; font-weight: bold; font-size: 12px; border-radius: 6px; margin-bottom: 16px;">
+            Urgencia: ${incident.urgency || 'Media'}
+          </div>
+          <p style="font-size: 16px; font-weight: bold; margin: 0 0 10px 0;">Sector: ${incident.sector || 'General'}</p>
+          <p style="font-size: 14px; margin: 0 0 10px 0;"><b>Ubicación exacta:</b> ${incident.exactLocation || 'No especificada'}</p>
+          <p style="font-size: 14px; margin: 0 0 16px 0; background-color: #f8fafc; padding: 12px; border-radius: 8px; border-left: 4px solid #cbd5e1;">
+            <b>Descripción:</b><br/>${incident.description || 'Sin descripción'}
+          </p>
+          <p style="font-size: 13px; color: #64748b;"><b>Informante:</b> ${incident.reporterName || 'Anónimo'} (${incident.reporterEmail || 'Sin email'})</p>
+        </div>
+        <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b;">
+          Sistema de Gestión de Incidencias — Museo Patagónico
+        </div>
       </div>
-      <div style="background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b;">
-        Sistema de Gestión de Incidencias — Museo Patagónico
-      </div>
-    </div>
-  `;
+    `;
 
-  const subject = `🚨 [${incident.urgency || 'Urgente'}] Nueva Incidencia ${incident.incidentId} - ${incident.sector || 'Museo'}`;
+    const subject = `🚨 [${incident.urgency || 'Urgente'}] Nueva Incidencia ${incident.incidentId} - ${incident.sector || 'Museo'}`;
 
-  if (resend) {
-    try {
-      await resend.emails.send({
-        from: 'Incidencias Museo <onboarding@resend.dev>',
-        to: recipientList,
-        subject,
-        html: htmlContent,
-      });
-      return;
-    } catch (err) {
-      console.warn('Fallo el envío por Resend, intentando respaldo con Brevo:', err);
+    if (resend) {
+      try {
+        await resend.emails.send({
+          from: 'Incidencias Museo <onboarding@resend.dev>',
+          to: recipientList,
+          subject,
+          html: htmlContent,
+        });
+        return;
+      } catch (err) {
+        console.warn('Fallo Resend, probando Brevo:', err);
+      }
     }
-  }
 
-  if (process.env.BREVO_API_KEY) {
-    try {
+    if (process.env.BREVO_API_KEY) {
       await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
@@ -109,7 +105,9 @@ async function sendCoordinatorEmail(incident) {
           htmlContent,
         }),
       });
-    } catch (err) {}
+    }
+  } catch (e) {
+    console.error('Error enviando notificaciones por email:', e);
   }
 }
 
@@ -231,6 +229,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Método no permitido' });
   } catch (err) {
+    console.error('sync error:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 }

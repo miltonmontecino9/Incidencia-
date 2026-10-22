@@ -1,73 +1,62 @@
-const PIN_STORAGE_KEY = 'mp_coordinator_pin_v1';
-const DEFAULT_PIN = '2026';
+const PIN_SESSION_KEY = 'mp_coordinator_pin_session';
+const LEGACY_PIN_KEY = 'mp_coordinator_pin_v1';
+
+try { localStorage.removeItem(LEGACY_PIN_KEY); } catch {}
 
 export function getStoredPin(): string {
-  try {
-    const pin = localStorage.getItem(PIN_STORAGE_KEY);
-    return pin && /^\d{4}$/.test(pin) ? pin : DEFAULT_PIN;
-  } catch {
-    return DEFAULT_PIN;
-  }
+  try { return sessionStorage.getItem(PIN_SESSION_KEY) || ''; } catch { return ''; }
 }
 
-export function setStoredPin(newPin: string): boolean {
-  if (!/^\d{4}$/.test(newPin)) return false;
+export function setStoredPin(pin: string): boolean {
+  const p = String(pin).trim();
+  if (!p) return false;
   try {
-    localStorage.setItem(PIN_STORAGE_KEY, newPin);
+    sessionStorage.setItem(PIN_SESSION_KEY, p);
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
+}
+
+export function clearStoredPin(): void {
+  try { sessionStorage.removeItem(PIN_SESSION_KEY); } catch {}
 }
 
 export function verifyPin(enteredPin: string): boolean {
-  return enteredPin.trim() === getStoredPin();
+  const stored = getStoredPin();
+  return !!stored && enteredPin.trim() === stored;
 }
 
 export async function verifyPinAsync(enteredPin: string): Promise<boolean> {
+  const pin = enteredPin.trim();
   try {
     const res = await fetch('/api/pin/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: enteredPin.trim() }),
+      body: JSON.stringify({ pin }),
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.valid) {
-        setStoredPin(enteredPin.trim());
-        return true;
-      }
-      return false;
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data && data.valid) {
+      setStoredPin(pin);
+      return true;
     }
-  } catch {
-    // fallback to local stored pin
-  }
-  return verifyPin(enteredPin);
+    return false;
+  } catch { return false; }
 }
 
-export async function updatePinAsync(
-  currentPin: string,
-  newPin: string
-): Promise<{ success: boolean; error?: string }> {
+export async function updatePinAsync(currentPin: string, newPin: string): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch('/api/pin/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentPin, newPin }),
+      body: JSON.stringify({ currentPin: currentPin.trim(), newPin: newPin.trim() }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (res.ok && data.success) {
-      setStoredPin(newPin);
+      setStoredPin(newPin.trim());
       return { success: true };
     }
-    return { success: false, error: data.error || 'Error al actualizar PIN' };
+    return { success: false, error: data.error || 'Error al actualizar el PIN' };
   } catch {
-    // If offline, at least update local storage if current matches
-    if (verifyPin(currentPin)) {
-      setStoredPin(newPin);
-      return { success: true };
-    }
-    return { success: false, error: 'El PIN actual no es correcto' };
+    return { success: false, error: 'No se pudo conectar con el servidor.' };
   }
 }
-

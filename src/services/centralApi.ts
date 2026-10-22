@@ -1,80 +1,107 @@
 import { Incident, StaffMember } from '../types/incident';
+import { getStoredPin } from '../utils/security';
 
-const BASE_URL = '/api';
+const API = '/api/sync';
 
-export interface SyncResponse {
-  incidents: Incident[];
-  staff: StaffMember[];
-  updatedAt: string;
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
 }
 
-export async function checkServerHealth(): Promise<boolean> {
+function authHeaders(): Record<string, string> {
+  const pin = getStoredPin();
+  return pin ? { 'x-coordinator-pin': pin } : {};
+}
+
+async function errorMessage(res: Response, fallback: string): Promise<string> {
   try {
-    const res = await fetch(`${BASE_URL}/health`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+    const d = await res.json();
+    return d?.error || fallback;
+  } catch { return fallback; }
 }
 
-export async function fetchCentralSync(): Promise<SyncResponse> {
-  const res = await fetch(`${BASE_URL}/sync`, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-  });
+export interface CentralSyncData {
+  incidents?: Incident[];
+  staff?: StaffMember[];
+}
+
+let pollCount = 0;
+
+export async function fetchCentralSync(): Promise<CentralSyncData> {
+  const headers = authHeaders();
+  const authed = 'x-coordinator-pin' in headers;
+  if (!authed) pollCount = 0;
+  const wantStaff = authed && pollCount++ % 6 === 0;
+
+  const res = await fetch(wantStaff ? `${API}?staff=1` : API, { cache: 'no-store', headers });
   if (!res.ok) {
-    throw new Error(`Error en sync central: ${res.statusText}`);
+    throw new ApiError(await errorMessage(res, `Error ${res.status}`), res.status);
   }
-  return await res.json();
+  const data = await res.json();
+  const incidents = Array.isArray(data) ? data : data?.incidents;
+  if (!Array.isArray(incidents)) throw new ApiError('Respuesta inválida', 502);
+
+  return {
+    incidents: incidents as Incident[],
+    staff: Array.isArray(data?.staff) ? (data.staff as StaffMember[]) : undefined,
+  };
 }
 
 export async function saveCentralIncident(incident: Incident): Promise<Incident> {
-  const res = await fetch(`${BASE_URL}/incidents`, {
+  const res = await fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(incident),
+    body: JSON.stringify({ incident }),
   });
-  if (!res.ok) {
-    throw new Error(`Error al guardar incidencia: ${res.statusText}`);
-  }
-  return await res.json();
+  if (!res.ok) throw new ApiError(await errorMessage(res, 'Error al guardar'), res.status);
+  const data = await res.json();
+  return data.incident as Incident;
 }
 
 export async function updateCentralIncident(incident: Incident): Promise<Incident> {
-  const res = await fetch(`${BASE_URL}/incidents/${incident.incidentId}`, {
+  const body = { ...incident } as Record<string, unknown>;
+  delete body.evidencePhoto;
+
+  const res = await fetch(`${API}?id=${encodeURIComponent(incident.incidentId)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(incident),
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ incident: body }),
   });
-  if (!res.ok) {
-    throw new Error(`Error al actualizar incidencia: ${res.statusText}`);
-  }
-  return await res.json();
+  if (!res.ok) throw new ApiError(await errorMessage(res, 'Error al actualizar'), res.status);
+  const data = await res.json();
+  return data.incident as Incident;
 }
 
 export async function deleteCentralIncident(incidentId: string): Promise<boolean> {
-  const res = await fetch(`${BASE_URL}/incidents/${incidentId}`, {
+  const res = await fetch(`${API}?id=${encodeURIComponent(incidentId)}`, {
     method: 'DELETE',
+    headers: authHeaders(),
   });
-  if (!res.ok) {
-    throw new Error(`Error al eliminar incidencia: ${res.statusText}`);
-  }
+  if (!res.ok) throw new ApiError(await errorMessage(res, 'Error al eliminar'), res.status);
   return true;
 }
 
-export async function saveStaffList(staff: StaffMember[]): Promise<StaffMember[]> {
-  const res = await fetch(`${BASE_URL}/staff`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(staff),
+export async function saveStaffList(staff: StaffMember[]): Promise<void> {
+  const res = await fetch(`${API}?staff=1`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ staff }),
   });
-  if (!res.ok) {
-    throw new Error(`Error al guardar personal: ${res.statusText}`);
-  }
-  return await res.json();
+  if (!res.ok) throw new ApiError(await errorMessage(res, 'Error al guardar personal'), res.status);
+}
+
+export async function fetchIncidentPhoto(incidentId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${API}?id=${encodeURIComponent(incidentId)}&photo=1`, {
+      cache: 'no-store',
+      headers: authHeaders(),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.evidencePhoto ?? null;
+  } catch { return null; }
 }

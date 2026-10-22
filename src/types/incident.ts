@@ -49,6 +49,9 @@ export interface StaffMember {
 }
 
 export interface Incident {
+  hasPhoto?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   incidentId: string;
   timestamp: string;
   reporterName: string;

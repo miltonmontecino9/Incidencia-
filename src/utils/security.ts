@@ -25,13 +25,13 @@ export function verifyPin(enteredPin: string): boolean {
   return !!stored && enteredPin.trim() === stored;
 }
 
-export async function verifyPinAsync(enteredPin: string): Promise<boolean> {
+export async function verifyPinAsync(enteredPin: string, email?: string): Promise<boolean> {
   const pin = enteredPin.trim();
   try {
     const res = await fetch('/api/pin/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
+      body: JSON.stringify({ pin, email }),
     });
     if (!res.ok) return false;
     const data = await res.json();

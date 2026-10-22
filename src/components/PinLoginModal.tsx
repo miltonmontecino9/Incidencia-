@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, AlertCircle, UserCheck } from 'lucide-react';
+import { X, ShieldCheck, AlertCircle, UserCheck, Mail } from 'lucide-react';
 import { verifyPinAsync } from '../utils/security';
 
 interface Props {
@@ -17,6 +17,7 @@ export const PinLoginModal: React.FC<Props> = ({
 }) => {
   const [pin, setPin] = useState('');
   const [coordinatorName, setCoordinatorName] = useState(defaultName || '');
+  const [coordinatorEmail, setCoordinatorEmail] = useState('');
   const [error, setError] = useState(false);
   const [nameError, setNameError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -25,14 +26,14 @@ export const PinLoginModal: React.FC<Props> = ({
 
   const validateAndProceed = async (targetPin: string) => {
     if (!coordinatorName.trim()) {
-      setNameError('Por favor ingresa tu nombre o email para firmar las acciones.');
+      setNameError('Por favor ingresa tu nombre completo.');
       return;
     }
     setNameError('');
     setIsVerifying(true);
 
     try {
-      const isValid = await verifyPinAsync(targetPin);
+      const isValid = await verifyPinAsync(targetPin, coordinatorEmail.trim());
       if (isValid) {
         setError(false);
         const finalName = coordinatorName.trim();
@@ -71,7 +72,7 @@ export const PinLoginModal: React.FC<Props> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-sm w-full p-6 text-center overflow-hidden">
-        
+
         {/* Cabecera */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
           <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-base">
@@ -87,11 +88,11 @@ export const PinLoginModal: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* 3. SOLICITUD DE NOMBRE O EMAIL DEL COORDINADOR EN TURNO */}
-        <div className="text-left mb-4">
+        {/* 1. NOMBRE DEL COORDINADOR */}
+        <div className="text-left mb-3">
           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1 flex items-center gap-1.5">
             <UserCheck className="w-3.5 h-3.5 text-amber-600" />
-            <span>Coordinador en Turno (Firma) *</span>
+            <span>Nombre del Coordinador (Firma) *</span>
           </label>
           <input
             type="text"
@@ -100,7 +101,7 @@ export const PinLoginModal: React.FC<Props> = ({
               setCoordinatorName(e.target.value);
               if (nameError) setNameError('');
             }}
-            placeholder="Ej: Lic. Marcos Paz o marcos@museo.org"
+            placeholder="Ej: Lic. Marcos Paz"
             className={`w-full px-3 py-2 text-xs rounded-xl border bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 ${
               nameError ? 'border-red-500 bg-red-50/50' : 'border-slate-300 dark:border-slate-700'
             }`}
@@ -108,8 +109,23 @@ export const PinLoginModal: React.FC<Props> = ({
           {nameError && (
             <p className="mt-1 text-[11px] text-red-600 dark:text-red-400 font-semibold">{nameError}</p>
           )}
+        </div>
+
+        {/* 2. EMAIL DEL COORDINADOR PARA NOTIFICACIONES */}
+        <div className="text-left mb-4">
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1 flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5 text-amber-600" />
+            <span>Correo para Alertas (Opcional)</span>
+          </label>
+          <input
+            type="email"
+            value={coordinatorEmail}
+            onChange={(e) => setCoordinatorEmail(e.target.value)}
+            placeholder="marcos@museo.org"
+            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+          />
           <p className="text-[10px] text-slate-400 mt-1">
-            Se registrará en la bitácora de trazabilidad de cada acción efectuada.
+            Recibirás un aviso inmediato por mail ante nuevas incidencias reportadas.
           </p>
         </div>
 

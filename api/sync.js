@@ -1,7 +1,4 @@
 import { redis, getIp, hitLimit, checkPin, readPin, parseBody } from './_lib/shared.js';
-import { Resend } from 'resend';
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const INC = 'incidents';
 const PHOTOS = 'incident_photos';
@@ -76,20 +73,29 @@ async function sendCoordinatorEmail(incident) {
 
     const subject = `🚨 [${incident.urgency || 'Urgente'}] Nueva Incidencia ${incident.incidentId} - ${incident.sector || 'Museo'}`;
 
-    if (resend) {
+    // 1. Probar Resend vía HTTP Fetch directo
+    if (process.env.RESEND_API_KEY) {
       try {
-        await resend.emails.send({
-          from: 'Incidencias Museo <onboarding@resend.dev>',
-          to: recipientList,
-          subject,
-          html: htmlContent,
+        const resResend = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Incidencias Museo <onboarding@resend.dev>',
+            to: recipientList,
+            subject,
+            html: htmlContent,
+          }),
         });
-        return;
+        if (resResend.ok) return;
       } catch (err) {
-        console.warn('Fallo Resend, probando Brevo:', err);
+        console.warn('Fallo Resend fetch:', err);
       }
     }
 
+    // 2. Probar Brevo como respaldo
     if (process.env.BREVO_API_KEY) {
       await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -107,7 +113,7 @@ async function sendCoordinatorEmail(incident) {
       });
     }
   } catch (e) {
-    console.error('Error enviando notificaciones por email:', e);
+    console.error('Error enviando mail:', e);
   }
 }
 

@@ -46,7 +46,6 @@ async function sendCoordinatorEmail(incident) {
       recipientList = process.env.COORDINATOR_EMAILS.split(',').map((e) => e.trim());
     }
 
-    // Correo oficial del Museo como destino si no hay ninguno registrado
     if (recipientList.length === 0) {
       recipientList = ['incidencias.museopatagonico@gmail.com'];
     }
@@ -78,32 +77,10 @@ async function sendCoordinatorEmail(incident) {
 
     const subject = `🚨 [${incident.urgency || 'Urgente'}] Nueva Incidencia ${incident.incidentId} - ${incident.sector || 'Museo'}`;
 
-    // 1. Intentar con Resend (solo permite enviar a incidencias.museopatagonico@gmail.com en el plan gratuito)
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const resResend = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'Incidencias Museo <onboarding@resend.dev>',
-            to: ['incidencias.museopatagonico@gmail.com'],
-            subject,
-            html: htmlContent,
-          }),
-        });
-        if (resResend.ok) return;
-      } catch (err) {
-        console.warn('Fallo Resend fetch:', err);
-      }
-    }
-
-    // 2. Intentar con Brevo (usando la casilla verificada como remitente)
+    // 1. Envío mediante Brevo
     if (process.env.BREVO_API_KEY) {
       try {
-        await fetch('https://api.brevo.com/v3/smtp/email', {
+        const resBrevo = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
             'accept': 'application/json',
@@ -117,12 +94,34 @@ async function sendCoordinatorEmail(incident) {
             htmlContent,
           }),
         });
+        if (resBrevo.ok) return;
       } catch (err) {
-        console.warn('Fallo Brevo fetch:', err);
+        console.warn('Brevo fetch error:', err);
+      }
+    }
+
+    // 2. Respaldo mediante Resend
+    if (process.env.RESEND_API_KEY) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Incidencias Museo <onboarding@resend.dev>',
+            to: recipientList,
+            subject,
+            html: htmlContent,
+          }),
+        });
+      } catch (err) {
+        console.warn('Resend fetch error:', err);
       }
     }
   } catch (e) {
-    console.error('Error enviando mail:', e);
+    console.error('Error general enviando mail:', e);
   }
 }
 
@@ -192,7 +191,8 @@ export default async function handler(req, res) {
       if (rawPhoto) pipe.hset(PHOTOS, { [incidentId]: rawPhoto });
       await pipe.exec();
 
-      sendCoordinatorEmail(incident).catch(() => {});
+      // Hacemos el AWAIT explícito para asegurar que Vercel termine la petición HTTP antes de cerrar la función
+      await sendCoordinatorEmail(incident);
 
       return res.status(201).json({ incident });
     }

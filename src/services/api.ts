@@ -60,10 +60,8 @@ export async function deleteCentralIncident(incidentId: string): Promise<boolean
 }
 export async function getIncidents() {
 try {
-const res = await fetch("/api/sync");
-if (res.ok) {
-  const data = await res.json();
-  if (data && data.incidents) return data.incidents;
+return JSON.parse(localStorage.getItem("museum_incidents") || "[]");
+} catch(e) { return []; }
 }
 } catch (e) {}
 try {
